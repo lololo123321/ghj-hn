@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en" style="height:100%">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Modern Phone Launcher</title>
+<style>
+:root {
+  --d: 300ms;
+  --anim: 1;
+  --fps: 60;
+  --wall-op: 1;
+  --bar-h: 5px;
+  --bar-w: 120px;
+}
+
+* { 
+  margin:0; 
+  padding:0; 
+  box-sizing:border-box; 
+  user-select:none; 
+  touch-action:pan-y; 
+}
+
+body { 
+  height:100%; 
+  background:#000; 
+  color:#fff; 
+  font-family:'Segoe UI', system-ui, sans-serif; 
+  overflow:hidden; 
+  animation: fps-step calc(1s / var(--fps)) infinite;
+}
+
+@keyframes fps-step {
+  0%, 100% { opacity: 0.999; }
+}
+
+.wallpaper { 
+  position:fixed; 
+  top:0; 
+  left:0; 
+  width:100%; 
+  height:100%;
+  background: linear-gradient(135deg, #6a11cb, #2575fc, #00bfff);
+  background-size:400% 400%; 
+  animation:gradient calc(15s * (60 / var(--fps))) ease infinite;
+  opacity: var(--wall-op);
+}
+
+@keyframes gradient {
+  0%{background-position:0% 50%} 
+  50%{background-position:100% 50%} 
+  100%{background-position:0% 50%}
+}
+
+.grid-container {
+  height:calc(100% - 70px); 
+  overflow-y:auto;
+  padding-top: 15px;
+}
+
+.grid {
+  display:grid; 
+  grid-template-columns:repeat(4,1fr); 
+  gap:15px; 
+  padding:15px;
+}
+
+.app {
+  aspect-ratio:1; 
+  border-radius:20px; 
+  background:rgba(255,255,255,0.1);
+  backdrop-filter:blur(10px); 
+  display:grid; 
+  place-items:center; 
+  font-size:14px; 
+  font-weight:500;
+  cursor:pointer;
+  box-shadow:0 4px 20px rgba(0,0,0,0.2); 
+  transition:transform var(--d) ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.app:active { 
+  transform:scale(var(--tap-scale, 0.95)); 
+}
+
+.app::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+  opacity: 0;
+  transition: opacity var(--d) ease;
+}
+
+.app:active::after {
+  opacity: 1;
+}
+
+.dock {
+  display:flex; 
+  justify-content:space-around; 
+  height:70px;
+  background:rgba(30,30,30,0.7); 
+  backdrop-filter:blur(20px);
+  border-radius:25px 25px 0 0; 
+  position:fixed; 
+  bottom:0; 
+  width:calc(100% - 20px); 
+  left:10px;
+  z-index:50;
+}
+
+.dock-app {
+  width:50px; 
+  height:50px; 
+  border-radius:15px; 
+  background:rgba(255,255,255,0.15);
+  display:grid; 
+  place-items:center; 
+  font-size:20px; 
+  cursor:pointer;
+  transition: transform var(--d) ease;
+  position: relative;
+}
+
+.dock-app::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255,255,255,0.2);
+  border-radius: 15px;
+  opacity: 0;
+  transition: opacity var(--d) ease;
+}
+
+.dock-app:active {
+  transform: translateY(-5px);
+}
+
+.dock-app:active::after {
+  opacity: 1;
+}
+
+.app-window {
+  position:fixed; 
+  background:#000; 
+  z-index:100;
+  display:flex; 
+  flex-direction:column; 
+  overflow: hidden;
+  box-shadow: 0 0 50px rgba(0,0,0,0.7);
+}
+
+.app-content { 
+  flex:1; 
+  padding:20px; 
+  overflow-y:auto; 
+  background: linear-gradient(rgba(40,20,80,0.2), rgba(10,40,90,0.2));
+  opacity: 0;
+  transition: opacity var(--d) ease;
+}
+
+.close-bar {
+  position:absolute; 
+  bottom:20px; 
+  left:50%; 
+  transform:translateX(-50%);
+  width:var(--bar-w); 
+  height:var(--bar-h); 
+  background:rgba(255,255,255,0.5); 
+  border-radius:3px;
+  cursor:pointer;
+  transition: transform var(--d) ease;
+  z-index:101;
+}
+
+.close-bar:active {
+  transform: translateX(-50%) translateY(-5px);
+}
+
+.settings-panel {
+  position:fixed; 
+  top:0; 
+  left:0; 
+  right:0; 
+  bottom:0; 
+  background:rgba(0,0,0,0.9); 
+  z-index:101;
+  padding:20px; 
+  display:none; 
+  overflow-y:auto; 
+  backdrop-filter:blur(10px);
+}
+
+.settings-group { 
+  background:rgba(255,255,255,0.1); 
+  padding:15px; 
+  border-radius:15px; 
+  margin-bottom:15px; 
+}
+
+.slider { 
+  width:100%; 
+  margin:15px 0; 
+  -webkit-appearance: none;
+  height: 6px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
+  outline: none;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #6a11cb;
+  cursor: pointer;
+}
+
+.toggle { 
+  display:flex; 
+  align-items:center; 
+  margin:10px 0; 
+}
+
+.toggle-label {
+  margin-left: 10px;
+  font-size: 15px;
+}
+
+.settings-title {
+  font-size: 20px;
+  margin-bottom: 15px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-weight: 600;
+}
+
+.slider-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: #ddd;
+}
+
+.slider-value {
+  font-weight: 500;
+}
+
+.app-title {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.9);
+}
+
+.app-header {
+  padding: 20px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  background: rgba(30,30,30,0.6);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.app-item {
+  padding: 15px;
+  background: rgba(255,255,255,0.05);
+  margin: 10px 0;
+  border-radius: 10px;
+  transition: transform var(--d) ease, background var(--d) ease;
+}
+
+.app-item:active {
+  transform: scale(0.98);
+  background: rgba(255,255,255,0.08);
+}
+
+.btn {
+  background: linear-gradient(to right, #6a11cb, #2575fc);
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 30px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  display: block;
+  margin: 25px auto 0;
+  transition: transform var(--d) ease, box-shadow var(--d) ease;
+}
+
+.btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 0 20px rgba(106, 17, 203, 0.5);
+}
+
+.close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 20px;
+  transition: background var(--d) ease;
+}
+
+.close-btn:active {
+  background: rgba(255,255,255,0.2);
+}
+
+.fps-indicator {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  background: rgba(0,0,0,0.6);
+  padding: 5px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  z-index: 200;
+}
+</style>
+</head>
+<body>
+<div class="wallpaper"></div>
+
+<div class="fps-indicator">FPS: <span id="fpsDisplay">60</span></div>
+
+<div class="grid-container">
+  <div class="grid" id="appGrid"></div>
+</div>
+
+<div class="dock">
+  <div class="dock-app" data-app="phone">
+    <span>📞</span>
+    <div class="app-title">Phone</div>
+  </div>
+  <div class="dock-app" data-app="messages">
+    <span>✉️</span>
+    <div class="app-title">Messages</div>
+  </div>
+  <div class="dock-app" data-app="camera">
+    <span>📷</span>
+    <div class="app-title">Camera</div>
+  </div>
+  <div class="dock-app" data-app="browser">
+    <span>🌐</span>
+    <div class="app-title">Browser</div>
+  </div>
+  <div class="dock-app" id="settingsBtn">
+    <span>⚙️</span>
+    <div class="app-title">Settings</div>
+  </div>
+</div>
+
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-header">
+    <h2>Settings</h2>
+    <div class="close-btn" onclick="document.getElementById('settingsPanel').style.display='none'">×</div>
+  </div>
+  
+  <div class="settings-group">
+    <div class="settings-title">Animations</div>
+    <div class="toggle">
+      <input type="checkbox" id="animToggle" checked> 
+      <label class="toggle-label" for="animToggle">Enable Animations</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="tapAnim" checked> 
+      <label class="toggle-label" for="tapAnim">Tap Animation</label>
+    </div>
+  </div>
+  
+  <div class="settings-group">
+    <div class="settings-title">Close Bar</div>
+    <div class="slider-label">
+      <span>Height:</span>
+      <span class="slider-value"><span id="barHVal">5</span>px</span>
+    </div>
+    <input type="range" min="3" max="10" value="5" class="slider" id="barH">
+    
+    <div class="slider-label">
+      <span>Width:</span>
+      <span class="slider-value"><span id="barWVal">120</span>px</span>
+    </div>
+    <input type="range" min="60" max="200" value="120" class="slider" id="barW">
+  </div>
+  
+  <div class="settings-group">
+    <div class="settings-title">Performance</div>
+    <div class="slider-label">
+      <span>FPS Limit:</span>
+      <span class="slider-value"><span id="fpsVal">60</span></span>
+    </div>
+    <input type="range" min="30" max="1488" step="1" value="60" class="slider" id="fpsSlider">
+    
+    <div class="toggle">
+      <input type="checkbox" id="fpsUnlock"> 
+      <label class="toggle-label" for="fpsUnlock">Unlock FPS</label>
+    </div>
+  </div>
+  
+  <div class="settings-group">
+    <div class="settings-title">Appearance</div>
+    <div class="toggle">
+      <input type="checkbox" id="wallpaperToggle" checked> 
+      <label class="toggle-label" for="wallpaperToggle">Animated Wallpaper</label>
+    </div>
+    <div class="toggle">
+      <input type="checkbox" id="fullscreenToggle"> 
+      <label class="toggle-label" for="fullscreenToggle">Full Screen Mode</label>
+    </div>
+  </div>
+  
+  <button class="btn" onclick="document.getElementById('settingsPanel').style.display='none'">
+    Save Settings
+  </button>
+</div>
+
+<script>
+const apps = [
+  "Phone", "Messages", "Camera", "Browser", 
+  "Maps", "Gallery", "Music", "Weather",
+  "Calendar", "Notes", "Wallet", "Drive",
+  "Translate", "Clock", "Files", "Calculator"
+];
+const colors = [
+  "#ff5252", "#ff793f", "#33d9b2", "#34ace0", 
+  "#706fd3", "#a55eea", "#cd84f1", "#ffcccc",
+  "#ff5252", "#ff793f", "#33d9b2", "#34ace0",
+  "#706fd3", "#a55eea", "#cd84f1", "#ffcccc"
+];
+
+const appGrid = document.getElementById('appGrid');
+apps.forEach((name, i) => {
+  const app = document.createElement('div');
+  app.className = 'app';
+  app.style.background = `linear-gradient(135deg, ${colors[i]}, ${colors[(i+4)%16]})`;
+  app.dataset.app = name.toLowerCase();
+  
+  const appIcon = document.createElement('div');
+  appIcon.style.fontSize = '24px';
+  appIcon.style.marginBottom = '15px';
+  appIcon.textContent = getAppIcon(name);
+  
+  const appName = document.createElement('div');
+  appName.textContent = name;
+  
+  app.appendChild(appIcon);
+  app.appendChild(appName);
+  
+  app.onclick = (e) => openApp(name, app);
+  appGrid.appendChild(app);
+});
+
+function getAppIcon(name) {
+  const icons = {
+    "Phone": "📞",
+    "Messages": "✉️",
+    "Camera": "📷",
+    "Browser": "🌐",
+    "Maps": "📍",
+    "Gallery": "🖼️",
+    "Music": "🎵",
+    "Weather": "☀️",
+    "Calendar": "📅",
+    "Notes": "📝",
+    "Wallet": "💳",
+    "Drive": "🚗",
+    "Translate": "🌍",
+    "Clock": "⏰",
+    "Files": "📁",
+    "Calculator": "🧮"
+  };
+  return icons[name] || "📱";
+}
+
+document.getElementById('settingsBtn').onclick = () => {
+  document.getElementById('settingsPanel').style.display = 'block';
+};
+
+document.getElementById('animToggle').onchange = function() {
+  document.documentElement.style.setProperty('--anim', this.checked ? 1 : 0);
+  if(!this.checked) {
+    document.querySelector('.wallpaper').style.animation = 'none';
+  } else {
+    document.querySelector('.wallpaper').style.animation = '';
+  }
+};
+
+document.getElementById('tapAnim').onchange = function() {
+  document.documentElement.style.setProperty('--tap-scale', this.checked ? 0.95 : 1);
+};
+
+document.getElementById('barH').oninput = function() {
+  const val = this.value;
+  document.documentElement.style.setProperty('--bar-h', val + 'px');
+  document.getElementById('barHVal').textContent = val;
+};
+
+document.getElementById('barW').oninput = function() {
+  const val = this.value;
+  document.documentElement.style.setProperty('--bar-w', val + 'px');
+  document.getElementById('barWVal').textContent = val;
+};
+
+document.getElementById('fpsSlider').oninput = function() {
+  const fps = this.value;
+  document.documentElement.style.setProperty('--fps', fps);
+  document.getElementById('fpsVal').textContent = fps;
+  document.getElementById('fpsDisplay').textContent = fps;
+};
+
+document.getElementById('fpsUnlock').onchange = function() {
+  if(this.checked) {
+    document.documentElement.style.animation = 'none';
+  } else {
+    document.documentElement.style.animation = '';
+  }
+};
+
+document.getElementById('wallpaperToggle').onchange = function() {
+  document.documentElement.style.setProperty('--wall-op', this.checked ? 1 : 0);
+};
+
+document.getElementById('fullscreenToggle').onchange = function() {
+  if(this.checked) {
+    document.querySelector('.grid-container').style.display = 'none';
+    document.querySelector('.dock').style.borderRadius = '0';
+    document.querySelector('.dock').style.left = '0';
+    document.querySelector('.dock').style.width = '100%';
+  } else {
+    document.querySelector('.grid-container').style.display = 'block';
+    document.querySelector('.dock').style.borderRadius = '25px 25px 0 0';
+    document.querySelector('.dock').style.left = '10px';
+    document.querySelector('.dock').style.width = 'calc(100% - 20px)';
+  }
+};
+
+function openApp(name, icon) {
+  const appWindow = document.createElement('div');
+  appWindow.className = 'app-window';
+  
+  const iconRect = icon.getBoundingClientRect();
+  
+  appWindow.style.left = `${iconRect.left}px`;
+  appWindow.style.top = `${iconRect.top}px`;
+  appWindow.style.width = `${iconRect.width}px`;
+  appWindow.style.height = `${iconRect.height}px`;
+  appWindow.style.borderRadius = '20px';
+  
+  let contentHTML = `
+    <div class="app-header">${name}</div>
+    <div class="app-content">
+  `;
+  
+  for(let i = 1; i <= 15; i++) {
+    contentHTML += `
+      <div class="app-item">
+        <div style="font-weight:500">${name} Item ${i}</div>
+        <div style="font-size:13px; opacity:0.7; margin-top:5px">This is sample content for ${name}</div>
+      </div>
+    `;
+  }
+  
+  contentHTML += `</div><div class="close-bar"></div>`;
+  
+  appWindow.innerHTML = contentHTML;
+  document.body.appendChild(appWindow);
+  
+  setTimeout(() => {
+    appWindow.style.transition = `
+      left var(--d) ease,
+      top var(--d) ease,
+      width var(--d) ease,
+      height var(--d) ease,
+      border-radius var(--d) ease
+    `;
+    
+    appWindow.style.left = '0';
+    appWindow.style.top = '0';
+    appWindow.style.width = '100%';
+    appWindow.style.height = '100%';
+    appWindow.style.borderRadius = '0';
+    
+    setTimeout(() => {
+      appWindow.querySelector('.app-content').style.opacity = '1';
+    }, 300);
+  }, 10);
+  
+  const closeBar = appWindow.querySelector('.close-bar');
+  closeBar.onclick = () => closeApp(appWindow, icon);
+  
+  let startY = 0;
+  appWindow.addEventListener('touchstart', e => startY = e.touches[0].clientY);
+  appWindow.addEventListener('touchmove', e => {
+    const diff = e.touches[0].clientY - startY;
+    if(diff > 0) {
+      const progress = Math.min(diff / 300, 1);
+      appWindow.style.opacity = 1 - progress;
+      appWindow.style.transform = `translateY(${diff}px)`;
+    }
+  });
+  appWindow.addEventListener('touchend', e => {
+    const diff = e.changedTouches[0].clientY - startY;
+    if(diff > 100) closeApp(appWindow, icon);
+    else {
+      appWindow.style.transform = '';
+      appWindow.style.opacity = '';
+    }
+  });
+}
+
+function closeApp(appWindow, icon) {
+  appWindow.querySelector('.app-content').style.opacity = '0';
+  
+  setTimeout(() => {
+    const iconRect = icon.getBoundingClientRect();
+    
+    appWindow.style.transition = `
+      left var(--d) ease,
+      top var(--d) ease,
+      width var(--d) ease,
+      height var(--d) ease,
+      border-radius var(--d) ease,
+      opacity var(--d) ease
+    `;
+    
+    appWindow.style.left = `${iconRect.left}px`;
+    appWindow.style.top = `${iconRect.top}px`;
+    appWindow.style.width = `${iconRect.width}px`;
+    appWindow.style.height = `${iconRect.height}px`;
+    appWindow.style.borderRadius = '20px';
+    appWindow.style.opacity = '0';
+    
+    setTimeout(() => {
+      appWindow.remove();
+    }, 300);
+  }, 50);
+}
+
+document.querySelectorAll('.dock-app').forEach(dockApp => {
+  if(dockApp.id !== 'settingsBtn') {
+    dockApp.onclick = (e) => {
+      const icon = e.currentTarget;
+      icon.style.transform = 'translateY(-5px)';
+      setTimeout(() => {
+        icon.style.transform = '';
+      }, 200);
+      openApp(dockApp.dataset.app, icon.querySelector('span'));
+    };
+  }
+});
+
+let lastTime = 0;
+let frameCount = 0;
+let fps = 0;
+
+function updateFPS() {
+  const now = performance.now();
+  frameCount++;
+  
+  if (now >= lastTime + 1000) {
+    fps = Math.round((frameCount * 1000) / (now - lastTime));
+    document.getElementById('fpsDisplay').textContent = fps;
+    frameCount = 0;
+    lastTime = now;
+  }
+  
+  requestAnimationFrame(updateFPS);
+}
+
+updateFPS();
+</script>
+</body>
+</html>
